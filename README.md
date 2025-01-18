@@ -16,6 +16,8 @@
 
 ## (1) Hello, World!
 
+fcb291df1f9aa5c9fe444482a20558dd79b29f7c
+
 ```bash
 bash agent.sh "Hello, World!"
 ```
@@ -23,4 +25,3 @@ bash agent.sh "Hello, World!"
 ```
 Hello, World! It's nice to meet you. What can I help you solve today? 😊 
 ```
-
