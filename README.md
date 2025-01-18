@@ -280,3 +280,23 @@ Taroの「もちろんです！」は、Shumpeiさんの「私って誰でした
 ```
 
 ## (2) Rewrite
+
+今後の拡張のためにJavaScriptに書き換える。
+
+commit: FIXME
+
+```sh
+bash chat.sh "$(cat <<EOF
+以下のスクリプトをJavaScriptに書き換えてください。
+
+- Node.js v22で実行します。
+- npmパッケージは使わず、標準ライブラリのみで実装してください。
+
+$(cat chat.sh)
+EOF
+)" history-20250118-2140.txt
+```
+
+Output: [history-20250118-2140.txt](history-20250118-2140.txt)
+
+引数の順序が変わっていたり、エラーハンドリングなど粗い部分があるが、先に進める。

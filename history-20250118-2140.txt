@@ -1,0 +1,383 @@
+User: 以下のスクリプトをJavaScriptに書き換えてください。
+
+- Node.js v22で実行します。
+- npmパッケージは使わず、標準ライブラリのみで実装してください。
+
+#!/usr/bin/env bash
+
+API_KEY="$(cat .secrets/gemini-api-key.txt)"
+MODEL_CODE="models/gemini-1.5-pro-001"
+SYSTEM_INSTRUCTION="$(cat system_instruction.md)"
+HISTORY_FILE="${2:-history.txt}" # 引数で指定したファイル名、デフォルトはhistory.txt
+
+# エラー処理用の関数
+function handle_error {
+  echo "エラーが発生しました: $1" >&2
+  echo "レスポンス: $response" >&2
+  exit 1
+}
+
+# 会話履歴の読み込み
+if [[ -f "$HISTORY_FILE" ]]; then
+  HISTORY=$(cat "$HISTORY_FILE")
+else
+  HISTORY=""
+fi
+
+USER_INPUT="$1"
+
+# 会話履歴をJSONに埋め込み
+json_payload=$(jq -n --arg system_instruction "$SYSTEM_INSTRUCTION" --arg history "$HISTORY" --arg user_input "$USER_INPUT" '{
+  system_instruction: {
+    parts: [{"text": $system_instruction}]
+  },
+  contents: [
+    {
+      role: "user",
+      parts: [{"text": $history}]
+    },
+    {
+      role: "user",
+      parts: [{"text": $user_input}]
+    }
+  ]
+}')
+
+response=$(curl -s -H 'Content-Type: application/json' \
+-X POST \
+-d "$json_payload" \
+"https://generativelanguage.googleapis.com/v1beta/${MODEL_CODE}:generateContent?key=$API_KEY")
+
+# エラー処理
+if [[ $(echo "$response" | jq -e '.error' > /dev/null; echo $?) == "0" ]]; then
+  handle_error "APIリクエストエラー"
+fi
+
+generated_text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text')
+
+# レスポンス全体を標準出力
+echo "$response"
+
+# 会話履歴の保存
+echo "User: $USER_INPUT" >> "$HISTORY_FILE"
+echo "Taro: $generated_text" >> "$HISTORY_FILE"
+
+# レスポンスのテキスト部分のみ出力
+echo "$generated_text"
+Taro: ```javascript
+const https = require('https');
+const fs = require('fs');
+
+// APIキーとモデルコードの設定
+const API_KEY = fs.readFileSync('.secrets/gemini-api-key.txt', 'utf-8').trim();
+const MODEL_CODE = 'models/gemini-1.5-pro-001';
+
+// システムインストラクションの読み込み
+const SYSTEM_INSTRUCTION = fs.readFileSync('system_instruction.md', 'utf-8');
+
+// 会話履歴ファイル名の取得
+const HISTORY_FILE = process.argv[2] || 'history.txt';
+
+// エラー処理関数の定義
+function handleError(error, response) {
+  console.error('エラーが発生しました:', error);
+  console.error('レスポンス:', response);
+  process.exit(1);
+}
+
+// 会話履歴の読み込み
+let HISTORY = '';
+try {
+  HISTORY = fs.readFileSync(HISTORY_FILE, 'utf-8');
+} catch (err) {
+  // ファイルが存在しない場合は空の履歴を使用
+}
+
+// ユーザー入力の取得
+const USER_INPUT = process.argv[3];
+
+// JSONペイロードの作成
+const jsonPayload = JSON.stringify({
+  system_instruction: {
+    parts: [{ text: SYSTEM_INSTRUCTION }],
+  },
+  contents: [
+    {
+      role: 'user',
+      parts: [{ text: HISTORY }],
+    },
+    {
+      role: 'user',
+      parts: [{ text: USER_INPUT }],
+    },
+  ],
+});
+
+// APIリクエストオプションの設定
+const options = {
+  hostname: 'generativelanguage.googleapis.com',
+  path: `/v1beta/${MODEL_CODE}:generateContent?key=${API_KEY}`,
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+};
+
+// APIリクエストの送信
+const req = https.request(options, (res) => {
+  let data = '';
+  res.on('data', (chunk) => {
+    data += chunk;
+  });
+  res.on('end', () => {
+    // レスポンスの処理
+    let response;
+    try {
+      response = JSON.parse(data);
+    } catch (error) {
+      handleError('APIレスポンスの解析エラー', data);
+      return;
+    }
+
+    if (response.error) {
+      handleError('APIリクエストエラー', response);
+      return;
+    }
+
+    const generatedText = response.candidates[0].content.parts[0].text;
+
+    // レスポンス全体を標準出力
+    console.log(JSON.stringify(response, null, 2));
+
+    // 会話履歴の保存
+    fs.appendFileSync(HISTORY_FILE, `User: ${USER_INPUT}\n`);
+    fs.appendFileSync(HISTORY_FILE, `Taro: ${generatedText}\n`);
+
+    // レスポンスのテキスト部分のみ出力
+    console.log(generatedText);
+  });
+});
+
+req.on('error', (error) => {
+  handleError('APIリクエストエラー', error);
+});
+
+req.write(jsonPayload);
+req.end();
+```
+
+**使用方法:**
+
+1. 上記のスクリプトを `taro.js` という名前のファイルに保存します。
+2. `.secrets/gemini-api-key.txt` というファイルを作成し、Gemini APIキーを1行で書き込みます。
+3. `system_instruction.md` というファイルを作成し、システムインストラクションをMarkdown形式で書き込みます。
+4. ターミナルで以下のコマンドを実行して、スクリプトを実行します。
+
+```bash
+node taro.js "あなたの質問"
+```
+
+**例:**
+
+```bash
+node taro.js "今日の天気は？"
+```
+
+**注意:**
+
+- このスクリプトでは、`jq` の代わりに `JSON.parse()` を使用してJSONを処理しています。
+- エラー処理は、簡略化のために最小限に抑えられています。
+- このスクリプトは、Node.js v22以降で動作します。
+User: httpsで通信している部分をfetch apiで書き換えてください。
+Taro: ```javascript
+const fs = require('fs');
+
+// APIキーとモデルコードの設定
+const API_KEY = fs.readFileSync('.secrets/gemini-api-key.txt', 'utf-8').trim();
+const MODEL_CODE = 'models/gemini-1.5-pro-001';
+
+// システムインストラクションの読み込み
+const SYSTEM_INSTRUCTION = fs.readFileSync('system_instruction.md', 'utf-8');
+
+// 会話履歴ファイル名の取得
+const HISTORY_FILE = process.argv[2] || 'history.txt';
+
+// エラー処理関数の定義
+function handleError(error, response) {
+  console.error('エラーが発生しました:', error);
+  console.error('レスポンス:', response);
+  process.exit(1);
+}
+
+// 会話履歴の読み込み
+let HISTORY = '';
+try {
+  HISTORY = fs.readFileSync(HISTORY_FILE, 'utf-8');
+} catch (err) {
+  // ファイルが存在しない場合は空の履歴を使用
+}
+
+// ユーザー入力の取得
+const USER_INPUT = process.argv[3];
+
+// JSONペイロードの作成
+const jsonPayload = JSON.stringify({
+  system_instruction: {
+    parts: [{ text: SYSTEM_INSTRUCTION }],
+  },
+  contents: [
+    {
+      role: 'user',
+      parts: [{ text: HISTORY }],
+    },
+    {
+      role: 'user',
+      parts: [{ text: USER_INPUT }],
+    },
+  ],
+});
+
+// APIリクエストの送信
+fetch(`https://generativelanguage.googleapis.com/v1beta/${MODEL_CODE}:generateContent?key=${API_KEY}`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: jsonPayload,
+})
+  .then((res) => {
+    if (!res.ok) {
+      throw new Error(`APIリクエストエラー: ${res.status}`);
+    }
+    return res.json();
+  })
+  .then((response) => {
+    const generatedText = response.candidates[0].content.parts[0].text;
+
+    // レスポンス全体を標準出力
+    console.log(JSON.stringify(response, null, 2));
+
+    // 会話履歴の保存
+    fs.appendFileSync(HISTORY_FILE, `User: ${USER_INPUT}\n`);
+    fs.appendFileSync(HISTORY_FILE, `Taro: ${generatedText}\n`);
+
+    // レスポンスのテキスト部分のみ出力
+    console.log(generatedText);
+  })
+  .catch((error) => {
+    handleError('APIリクエストエラー', error);
+  });
+
+```
+
+**変更点:**
+
+- `https` モジュールを削除しました。
+- `fetch` API を使用してAPIリクエストを送信するように変更しました。
+- レスポンスの処理を `.then()` ブロックに移動しました。
+- エラー処理を `.catch()` ブロックに移動しました。
+
+**注意:**
+
+- `fetch` API は Node.js v18 以降で標準で使用できます。 
+- v17 以前のバージョンでは、`node-fetch` などのパッケージを使用する必要があります。
+User: Promiseのチェーンではなくasync - awaitを使ってください
+Taro: ```javascript
+const fs = require('fs');
+
+// APIキーとモデルコードの設定
+const API_KEY = fs.readFileSync('.secrets/gemini-api-key.txt', 'utf-8').trim();
+const MODEL_CODE = 'models/gemini-1.5-pro-001';
+
+// システムインストラクションの読み込み
+const SYSTEM_INSTRUCTION = fs.readFileSync('system_instruction.md', 'utf-8');
+
+// 会話履歴ファイル名の取得
+const HISTORY_FILE = process.argv[2] || 'history.txt';
+
+// エラー処理関数の定義
+function handleError(error, response) {
+  console.error('エラーが発生しました:', error);
+  console.error('レスポンス:', response);
+  process.exit(1);
+}
+
+// 会話履歴の読み込み
+async function loadHistory() {
+  try {
+    return fs.readFileSync(HISTORY_FILE, 'utf-8');
+  } catch (err) {
+    // ファイルが存在しない場合は空の履歴を使用
+    return '';
+  }
+}
+
+// メイン関数
+async function main() {
+  try {
+    // 会話履歴の読み込み
+    const HISTORY = await loadHistory();
+
+    // ユーザー入力の取得
+    const USER_INPUT = process.argv[3];
+
+    // JSONペイロードの作成
+    const jsonPayload = JSON.stringify({
+      system_instruction: {
+        parts: [{ text: SYSTEM_INSTRUCTION }],
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: HISTORY }],
+        },
+        {
+          role: 'user',
+          parts: [{ text: USER_INPUT }],
+        },
+      ],
+    });
+
+    // APIリクエストの送信
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${MODEL_CODE}:generateContent?key=${API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonPayload,
+    });
+
+    if (!res.ok) {
+      throw new Error(`APIリクエストエラー: ${res.status}`);
+    }
+
+    const response = await res.json();
+    const generatedText = response.candidates[0].content.parts[0].text;
+
+    // レスポンス全体を標準出力
+    console.log(JSON.stringify(response, null, 2));
+
+    // 会話履歴の保存
+    fs.appendFileSync(HISTORY_FILE, `User: ${USER_INPUT}\n`);
+    fs.appendFileSync(HISTORY_FILE, `Taro: ${generatedText}\n`);
+
+    // レスポンスのテキスト部分のみ出力
+    console.log(generatedText);
+  } catch (error) {
+    handleError('APIリクエストエラー', error);
+  }
+}
+
+// メイン関数の実行
+main();
+```
+
+**変更点:**
+
+- `async` - `await` を使用して、非同期処理を同期的に記述しました。
+- `loadHistory` 関数を `async` 関数として定義し、`await` を使用してファイル読み込みを同期的に実行するようにしました。
+- `main` 関数を `async` 関数として定義し、`await` を使用して `fetch` とレスポンス処理を同期的に実行するようにしました。
+- `try...catch` ブロックを使用して、エラーを処理するようにしました。
+
+
+これで、コードはより読みやすく、理解しやすくなりました。 
