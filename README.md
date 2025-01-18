@@ -11,12 +11,13 @@
 - 自分ではコードを書かない
   - 書くのは最初にLLMとやりとりするスクリプトとプロンプトのみ
   - プロンプトの練習も兼ねている
+  - LLM自身に書かせることで、拡張・カスタマイズをLLM自身にやってもらう際のヒントを得る
 
 # Log
 
-## (1) Hello, World!
+## (0) Hello, World!
 
-LLMと一問一答できるようになる
+まずは一問一答の形式でやり取りするスクリプトを準備。ここだけは私が書く。
 
 commit: fcb291df1f9aa5c9fe444482a20558dd79b29f7c
 
@@ -29,13 +30,16 @@ Output:
 Hello, World! It's nice to meet you. What can I help you solve today? 😊 
 ```
 
-## (2) Conversation History
+Gemini APIの仕様を確認する過程でsystem instructionをファイルから読めるようにしたが、ここではなくても良かった。
 
-会話の内容を保持できるようになる
+## (1) Conversation History
+
+会話の内容を保持できるようにする。
 
 commit: cdf08a4e129314ad3addd18f219c6749f22e9401
 
 ```sh
+# まだAgentと呼べるほどのものではないのでリネーム
 mv agent.sh hello.sh
 
 bash hello.sh "$(cat <<EOF
@@ -136,8 +140,8 @@ EOF
 )"
 ```
 
-- Bashスクリプトと明記しないとPythonのスクリプトを書いてしまった。
-- Gemini APIの仕様を渡さないと無効なフォーマットでリクエストを送ってしまう。
+- Bashスクリプトと明記しないとPythonのスクリプトを書いてしまったため、明記した。
+- Gemini APIの仕様を渡さないと無効なフォーマットでリクエストを送ってしまうため、仕様を明記。
 
 <details>
 <summary>Output:</summary>
@@ -274,3 +278,5 @@ Taroの「もちろんです！」は、Shumpeiさんの「私って誰でした
 
 つまり、「あなたのことを覚えていますよ！（もちろんです！）」と伝え、その後に「あなたはShumpeiさんですよ」と、名前を再確認する流れになっています。 
 ```
+
+## (2) Rewrite
