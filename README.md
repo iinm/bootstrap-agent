@@ -283,7 +283,7 @@ Taroの「もちろんです！」は、Shumpeiさんの「私って誰でした
 
 今後の拡張のためにJavaScriptに書き換える。
 
-commit: FIXME
+commit: 97f7792da70d9ae32c56066db61de2f5c609f892
 
 ```sh
 bash chat.sh "$(cat <<EOF
@@ -300,3 +300,5 @@ EOF
 Output: [history-20250118-2140.txt](history-20250118-2140.txt)
 
 引数の順序が変わっていたり、エラーハンドリングなど粗い部分があるが、先に進める。
+
+## (3) Actions
