@@ -33,7 +33,7 @@ Hello, World! It's nice to meet you. What can I help you solve today? 😊
 
 会話の内容を保持できるようになる
 
-commit: FIXME
+commit: cdf08a4e129314ad3addd18f219c6749f22e9401
 
 ```sh
 mv agent.sh hello.sh
@@ -135,6 +135,9 @@ $(cat hello.sh)
 EOF
 )"
 ```
+
+- Bashスクリプトと明記しないとPythonのスクリプトを書いてしまった。
+- Gemini APIの仕様を渡さないと無効なフォーマットでリクエストを送ってしまう。
 
 <details>
 <summary>Output:</summary>
