@@ -607,3 +607,123 @@ findコマンドの実行結果:
 ```
 
 commit: b3c328a4fe0bb9d85f4f9d645295e9c39db1385a
+
+ツールの出力結果をLLMに渡す。
+
+```sh
+node agent-v4.js history-20250119-1800.txt "$(cat <<EOF
+LLMがディレクトリ内のファイルを検索する機能を実装したいです。
+find_cmdをLLMが実行するところまでは実装しました。
+結果をLLMに渡すように拡張したいです。
+
+agent-v4.js をベースに agent-v5.js を作成してファイルに書き込んでください。
+
+- 実装にあたって、明確にすべきポイントがあれば、すべて明確になるまで質問してください。
+- コードを提示する場合は省略せずにすべて提示してください
+- 実行環境はNode.js v22です
+- 標準ライブラリのみを利用してください
+
+Agent Script:
+<file_content path="agent-v4.js">
+$(cat agent-v4.js)
+</file_content>
+
+System Instruction:
+<file_content path="system_instruction.md">
+$(cat system_instruction.md)
+</file_content>
+EOF
+)"
+```
+
+Output: [history-20250119-1800.txt](history-20250119-1800.txt)
+
+```sh
+rm -f history-tmp.txt && node agent-v5.js history-tmp.txt "カレントディレクトリにどんなファイルがあるか調べて"
+```
+
+Output:
+<pre><code>
+```tool_code
+<find_cmd>
+  <path>.</path>
+  <depth>1</depth>
+</find_cmd>
+```
+LLMは以下のツールを実行しようとしました:
+[
+  {
+    "name": "find_cmd",
+    "parameters": {
+      "path": ".",
+      "depth": "1"
+    }
+  }
+]
+ツールを実行しますか？ (y/n): y
+ツール find_cmd を実行しています...
+findコマンドの実行結果:
+.
+./system_instruction.md
+./agent-v1.js
+./history-20250119-1420.txt
+./.secrets
+./agent-v4.js
+./agent-v2.js
+./history-20250119-1500.txt
+./README.md
+./chat.sh
+./agent-v5.js
+./history-20250119-1600.txt
+./history-tmp.txt
+./agent-v3.js
+./history-20250119-1800.txt
+./chat.js
+./history-20250119-1120.txt
+./.git
+./history-20250119-1100.txt
+./hello.sh
+./history-20250118-2140.txt
+
+{
+  "candidates": [
+    {
+      "finishReason": "SAFETY",
+      "index": 0,
+      "safetyRatings": [
+        {
+          "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          "probability": "NEGLIGIBLE"
+        },
+        {
+          "category": "HARM_CATEGORY_HATE_SPEECH",
+          "probability": "NEGLIGIBLE"
+        },
+        {
+          "category": "HARM_CATEGORY_HARASSMENT",
+          "probability": "NEGLIGIBLE"
+        },
+        {
+          "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+          "probability": "MEDIUM"
+        }
+      ]
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 643,
+    "totalTokenCount": 643
+  },
+  "modelVersion": "gemini-1.5-pro-001"
+}
+エラーが発生しました: APIリクエストエラー
+レスポンス: TypeError: Cannot read properties of undefined (reading 'parts')
+    at main (/home/shumpei/projects/bootstrap-agent/agent-v5.js:192:58)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async handleLLMResponse (/home/shumpei/projects/bootstrap-agent/agent-v5.js:132:11)
+    at async main (/home/shumpei/projects/bootstrap-agent/agent-v5.js:201:5)
+</code></pre>
+
+Safety Filterに引っかかってしまって、レスポンスが空。
+
+Commit: 
