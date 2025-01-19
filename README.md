@@ -318,3 +318,102 @@ Output: [history-20250119-1100.txt](history-20250119-1100.txt)
 - system instructionで指定したフォーマットにしたがって、ファイル保存のリクエストができている。
 - 改行を `\n` で表現しているのはこのままで良い?
 - contentの中にxmlが入る場合はどうする？
+
+フォーマットの詳細は後で考えることにして、LLMの返答にあるリクエスト内容をパースして実行できるようにする。
+
+commit: 
+
+```sh
+node chat.js history-20250119-1120.txt "$(cat <<EOF
+LLMがファイル書き込みなどのアクションを実行できるように拡張したいです。
+
+以下のような流れで実装すると良いでしょう。
+
+- LLMの返答にあるtoolのリクエストをパースする処理
+- Userの承認を得てtoolのリクエストを実行する処理
+- write_fileの実装
+
+まずは、toolのリクエストをパースしてconsole.logで出力する処理を追加してください。
+- Node.js v22で実行できるようにしてください。
+- パースには正規表現を使うと良いでしょう。
+- コードは省略せずに書いてください。
+
+LLMとやり取りするスクリプト：
+<file_content path="chat.js">
+$(cat chat.js)
+</file_content>
+
+System Instruction:
+<file_content path="system_instruction.md">
+$(cat system_instruction.md)
+</file_content>
+EOF
+)"
+```
+
+出力したスクリプトを `agent-v1.js` として保存。
+
+```sh
+node agent-v1.js history-tmp.txt "「Hello, World\!」という内容をファイル hello.txt に書き込んでください。"
+```
+
+Output:
+```
+<write_file>
+  <file_path>hello.txt</file_path>
+  <content>Hello, World!</content>
+</write_file> 
+
+Tool Request: { toolName: 'write_file', parameters: { file_path: 'hello.txt' } }
+```
+
+contentが抜けている。
+
+```sh
+node chat.js history-20250119-1120.txt "$(cat <<EOF
+実行してみましたが、write_fileのcontentが抜けているようです。
+
+Example:
+<write_file>
+  <file_path>hello.txt</file_path>
+  <content>Hello, World!</content>
+</write_file> 
+
+Tool Request: { toolName: 'write_file', parameters: { file_path: 'hello.txt' } }
+
+おそらく、正規表現に問題があり、<write_file>から</file_path>までしか抽出できていません。
+どんなアプローチで直すのが良いでしょうか？
+まだコードは書かず、修正方法の候補を教えてください。
+EOF
+)"
+```
+
+DOMParserを勧められるが、Node.jsの標準ライブラリにはないので、正規表現で対応する用に指示。
+
+```sh
+node agent-v1.js history-tmp.txt "「Hello, World\!」という内容をファイル hello.txt に書き込んでください。"
+```
+
+Output:
+```
+<write_file>
+  <file_path>hello.txt</file_path>
+  <content>Hello, World!</content>
+</write_file> 
+
+Tool Request: {
+  toolName: 'write_file',
+  parameters: { file_path: 'hello.txt', content: 'Hello, World!' }
+}
+```
+
+tools呼び出しが複数あると最初のものしかparseされないが後で考える。
+次に、Userの承認を求めるように拡張してもらう。
+
+```sh
+node chat.js history-20250119-1120.txt "$(cat <<EOF
+FIXME
+EOF
+)"
+```
+
