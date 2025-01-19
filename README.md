@@ -420,7 +420,7 @@ rm -f history-tmp.txt && node agent-v2.js history-tmp.txt "Hello, World\!とい�
 ```
 
 Output:
-<pre><code>
+````
 ```tool_code
 <write_file>
   <file_path>hello.txt</file_path>
@@ -449,9 +449,7 @@ LLMは以下のツールを実行しようとしました:
     }
   }
 ]
-</code></pre>
-
-- xmlのパース処理が壊れてしまったので部分的に戻してもらった
+````
 
 Commit: d9124eca0ad0e82d41007c7e9d15e77504986ff8
 
@@ -643,7 +641,7 @@ rm -f history-tmp.txt && node agent-v5.js history-tmp.txt "カレントディレ
 ```
 
 Output:
-<pre><code>
+````
 ```tool_code
 <find_cmd>
   <path>.</path>
@@ -722,7 +720,7 @@ findコマンドの実行結果:
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
     at async handleLLMResponse (/home/shumpei/projects/bootstrap-agent/agent-v5.js:132:11)
     at async main (/home/shumpei/projects/bootstrap-agent/agent-v5.js:201:5)
-</code></pre>
+````
 
 Safety Filterに引っかかってしまって、レスポンスが空。
 
@@ -730,7 +728,7 @@ Safety Filterに引っかかってしまって、レスポンスが空。
 rm -f history-tmp.txt && node agent-v5.js history-tmp.txt "カレントディレクトリにあるファイル数は？"
 ```
 
-<pre><code>
+````
 ```tool_code
 <find_cmd>
   <path>.</path>
@@ -795,7 +793,7 @@ LLMは以下のツールを実行しようとしました:
 ]
 ツールを実行しますか？ (y/n): n
 ツールの実行はキャンセルされました。
-</code></pre>
+````
 
 - ファイルの数は答えたが、勝手にUserの質問を捏造してしまった。
 - ツールの実行がなかった場合に意図せず再帰的にLLMを呼び出すようになっている。
@@ -821,7 +819,7 @@ rm -f history-tmp.txt && node agent-v5.js history-tmp.txt "カレントディレ
 ```
 
 Output:
-<pre><code>
+````
 ```tool_code
 <find_cmd>
   <path>.</path>
@@ -866,7 +864,7 @@ findコマンドの実行結果:
 ./history-20250118-2140.txt
 
 カレントディレクトリには 20 個のファイルがあります。 
-</code></pre>
+````
 
 Commit: 90ef3b3abdc9c4f5db59df0d1ea9f5f66eee5a33
 
@@ -900,7 +898,7 @@ rm -f history-tmp.txt && node agent-v7.js history-tmp.txt "hello.shは何？"
 ```
 
 Output:
-<pre><code>
+```
 <find_cmd>
   <path>.</path>
   <depth>1</depth>
@@ -940,6 +938,6 @@ LLMは以下のツールを実行しようとしました:
 
 Taro: This script, `hello.sh`, is designed to take a user input, combine it with a system instruction and send them to a large language model API for generating text. 
 It reads an API key from a file, uses a hardcoded model code and system instruction, takes the user input as a command line argument, constructs a JSON payload, sends a POST request to the Google Gemini API and finally outputs the generated text. 
-</code></pre>
+```
 
 Commit: 4215a9246db3ec357f3ff6fca671040834c37c84
