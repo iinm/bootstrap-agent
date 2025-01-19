@@ -305,7 +305,7 @@ Output: [history-20250118-2140.txt](history-20250118-2140.txt)
 
 まずはコードを書けるように、ファイルの書き込みができるようにする。
 
-commit:
+commit: a93d539cb577b2e04a1163a0a3f4450005f83387
 
 toolの呼び出し方を system_instruction.md に追記。
 
