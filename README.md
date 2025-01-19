@@ -871,3 +871,75 @@ findコマンドの実行結果:
 Commit: 90ef3b3abdc9c4f5db59df0d1ea9f5f66eee5a33
 
 filterの影響でレスポンスが空になる問題が残っているが先に進む。
+
+## (5) Actions / read_file
+
+次に、ファイルの内容を読み込む機能を実装する。
+
+```sh
+node agent-v6.js history-20250119-0935.txt "$(cat <<EOF
+LLMがファイルの内容を読み込む機能を実装したいです。
+system_instruction.mdにread_fileの仕様を記載したので agent-v6.js をベースに
+agent-v7.js を作成してファイルに書き込んでください。
+
+<file_content path="agent-v6.js">
+$(cat agent-v6.js)
+</file_content>
+
+<file_content path="system_instruction.md">
+$(cat system_instruction.md)
+</file_content>
+EOF
+)"
+```
+
+Output: [history-20250119-0935.txt](history-20250119-0935.txt)
+
+```sh
+rm -f history-tmp.txt && node agent-v7.js history-tmp.txt "hello.shは何？"
+```
+
+Output:
+<pre><code>
+<find_cmd>
+  <path>.</path>
+  <depth>1</depth>
+  <args>-name hello.sh</args>
+</find_cmd>
+LLMは以下のツールを実行しようとしました:
+[
+  {
+    "name": "find_cmd",
+    "parameters": {
+      "path": ".",
+      "depth": "1",
+      "args": "-name hello.sh"
+    }
+  }
+]
+ツールを実行しますか？ (y/n): y
+ツール find_cmd を実行しています...
+findコマンドの実行結果:
+./hello.sh
+
+Taro: <read_file>
+  <file_path>./hello.sh</file_path>
+</read_file>
+LLMは以下のツールを実行しようとしました:
+[
+  {
+    "name": "read_file",
+    "parameters": {
+      "file_path": "./hello.sh"
+    }
+  }
+]
+ツールを実行しますか？ (y/n): y
+ツール read_file を実行しています...
+ファイル ./hello.sh を読み込みました。
+
+Taro: This script, `hello.sh`, is designed to take a user input, combine it with a system instruction and send them to a large language model API for generating text. 
+It reads an API key from a file, uses a hardcoded model code and system instruction, takes the user input as a command line argument, constructs a JSON payload, sends a POST request to the Google Gemini API and finally outputs the generated text. 
+</code></pre>
+
+Commit: 9c6ce3328b0a59bb19e3c8849a821878b85f39d7

@@ -48,3 +48,15 @@ Example: List directories to capture the project structure.
   <depth>2</depth>
   <args>-type d</args>
 </find_cmd>
+
+## read_file
+
+Reads content from a file.
+
+Parameters:
+- file_path: (Required) Path to the file.
+
+Example: Read source code from a file.
+<read_file>
+  <file_path>/path/to/file.js</file_path>
+</read_file>
