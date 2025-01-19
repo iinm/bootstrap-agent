@@ -605,3 +605,5 @@ findコマンドの実行結果:
 ./hello.sh
 ./history-20250118-2140.txt
 ```
+
+commit: b3c328a4fe0bb9d85f4f9d645295e9c39db1385a
