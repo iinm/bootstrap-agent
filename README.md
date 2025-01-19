@@ -301,7 +301,7 @@ Commit: 97f7792da70d9ae32c56066db61de2f5c609f892
 
 引数の順序が変わっていたり、エラーハンドリングなど粗い部分があるが、先に進める。
 
-## (3) Actions
+## (3) Actions / write_file
 
 まずはコードを書けるように、ファイルの書き込みができるようにする。
 
@@ -527,3 +527,81 @@ Hello, World!
 ```
 
 Commit: 74e145ef44d69602d1fed99ac7e0970febd9b7e9
+
+## (4) Actions / find_cmd
+
+次に、findコマンドを使ってディレクトリ内のファイルを検索する機能を実装する。
+
+```sh
+node agent-v3.js history-20250119-1600.txt "$(cat <<EOF
+LLMがディレクトリ内のファイルを検索する機能を実装したいです。
+system_instruction.mdにfind_cmdの仕様を記載したので agent-v3.js をベースに
+agent-v4.js を作成してファイルに書き込んでください。
+
+- 実装にあたって、明確にすべきポイントがあれば、すべて明確になるまで質問してください。
+- コードを提示する場合は省略せずにすべて提示してください
+- 実行環境はNode.js v22です
+- 標準ライブラリのみを利用してください
+
+Agent Script:
+<file_content path="agent-v3.js">
+$(cat agent-v3.js)
+</file_content>
+
+System Instruction:
+<file_content path="system_instruction.md">
+$(cat system_instruction.md)
+</file_content>
+EOF
+)"
+```
+
+Output: [history-20250119-1600.txt](history-20250119-1600.txt)
+
+ファイルに書き込むように指示しないとwrite_fileを使ってくれなかった。
+
+```sh
+rm -f history-tmp.txt && node agent-v4.js history-tmp.txt "カレントディレクトリにどんなファイルがあるか調べて"
+```
+
+Output:
+```
+了解いたしました。現在のディレクトリにあるファイル一覧を取得します。
+
+<find_cmd>
+  <path>.</path>
+  <depth>1</depth>
+</find_cmd> 
+
+LLMは以下のツールを実行しようとしました:
+[
+  {
+    "name": "find_cmd",
+    "parameters": {
+      "path": ".",
+      "depth": "1"
+    }
+  }
+]
+ツールを実行しますか？ (y/n): y
+ツール find_cmd を実行しています...
+findコマンドの実行結果:
+.
+./system_instruction.md
+./agent-v1.js
+./history-20250119-1420.txt
+./.secrets
+./agent-v4.js
+./agent-v2.js
+./history-20250119-1500.txt
+./README.md
+./chat.sh
+./history-20250119-1600.txt
+./agent-v3.js
+./chat.js
+./history-20250119-1120.txt
+./.git
+./history-20250119-1100.txt
+./hello.sh
+./history-20250118-2140.txt
+```
