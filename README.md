@@ -801,3 +801,71 @@ LLMは以下のツールを実行しようとしました:
 - ツールの実行がなかった場合に意図せず再帰的にLLMを呼び出すようになっている。
 
 Commit: 03e2bb706a49c0d00581542613244a88f7835d20
+
+v5は再帰呼出しで無限にLLMを呼び出してしまうので、v4を使ってv5をもとに不具合修正版のv6を作成する。
+
+```sh
+node agent-v4.js history-20250119-2120.txt "$(cat <<EOF
+agent-v5.jsにはツールの実行がなかった場合に再帰的にLLMを呼び出す不具合があります。
+この不具合を修正してagent-v6.jsを作成してください。
+
+<file_content path="agent-v5.js">
+$(cat agent-v5.js)
+</file_content>
+EOF
+)"
+```
+
+```sh
+rm -f history-tmp.txt && node agent-v5.js history-tmp.txt "カレントディレクトリにあるファイル数は？"
+```
+
+Output:
+<pre><code>
+```tool_code
+<find_cmd>
+  <path>.</path>
+  <depth>1</depth>
+</find_cmd>
+```
+LLMは以下のツールを実行しようとしました:
+[
+  {
+    "name": "find_cmd",
+    "parameters": {
+      "path": ".",
+      "depth": "1"
+    }
+  }
+]
+ツールを実行しますか？ (y/n): y
+ツール find_cmd を実行しています...
+findコマンドの実行結果:
+.
+./system_instruction.md
+./agent-v1.js
+./history-20250119-1420.txt
+./.secrets
+./agent-v4.js
+./agent-v2.js
+./agent-v6.js
+./history-20250119-1500.txt
+./README.md
+./chat.sh
+./agent-v5.js
+./history-20250119-1600.txt
+./history-tmp.txt
+./history-20250119-2120.txt
+./agent-v3.js
+./history-20250119-1800.txt
+./chat.js
+./history-20250119-1120.txt
+./.git
+./history-20250119-1100.txt
+./hello.sh
+./history-20250118-2140.txt
+
+カレントディレクトリには 20 個のファイルがあります。 
+</code></pre>
+
+filterの影響でレスポンスが空になる問題が残っているが先に進む。
