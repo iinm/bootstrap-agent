@@ -321,8 +321,6 @@ Output: [history-20250119-1100.txt](history-20250119-1100.txt)
 
 フォーマットの詳細は後で考えることにして、LLMの返答にあるリクエスト内容をパースして実行できるようにする。
 
-commit: 
-
 ```sh
 node chat.js history-20250119-1120.txt "$(cat <<EOF
 LLMがファイル書き込みなどのアクションを実行できるように拡張したいです。
@@ -352,43 +350,6 @@ EOF
 ```
 
 出力したスクリプトを `agent-v1.js` として保存。
-
-```sh
-node agent-v1.js history-tmp.txt "「Hello, World\!」という内容をファイル hello.txt に書き込んでください。"
-```
-
-Output:
-```
-<write_file>
-  <file_path>hello.txt</file_path>
-  <content>Hello, World!</content>
-</write_file> 
-
-Tool Request: { toolName: 'write_file', parameters: { file_path: 'hello.txt' } }
-```
-
-contentが抜けている。
-
-```sh
-node chat.js history-20250119-1120.txt "$(cat <<EOF
-実行してみましたが、write_fileのcontentが抜けているようです。
-
-Example:
-<write_file>
-  <file_path>hello.txt</file_path>
-  <content>Hello, World!</content>
-</write_file> 
-
-Tool Request: { toolName: 'write_file', parameters: { file_path: 'hello.txt' } }
-
-おそらく、正規表現に問題があり、<write_file>から</file_path>までしか抽出できていません。
-どんなアプローチで直すのが良いでしょうか？
-まだコードは書かず、修正方法の候補を教えてください。
-EOF
-)"
-```
-
-DOMParserを勧められるが、Node.jsの標準ライブラリにはないので、正規表現で対応する用に指示。
 
 ```sh
 node agent-v1.js history-tmp.txt "「Hello, World\!」という内容をファイル hello.txt に書き込んでください。"
@@ -446,11 +407,13 @@ EOF
 Output: [history-20250119-1420.txt](history-20250119-1420.txt)
 
 出力したスクリプトをagent-v2.jsとして保存。
+まちがえて、古いバージョンの chat.js を与えていたが、気にせず先に進む。
 
 ```sh
 rm -f history-tmp.txt && node agent-v2.js history-tmp.txt "Hello, World\!という文字列をhello.txtに書き込んでください"
 ```
 
+Output:
 <pre><code>
 ```tool_code
 <write_file>
@@ -485,3 +448,66 @@ LLMは以下のツールを実行しようとしました:
 - xmlのパース処理が壊れてしまったので部分的に戻してもらった
 
 Commit: d9124eca0ad0e82d41007c7e9d15e77504986ff8
+
+write_fileを実装してファイルを書き込めるようにする。
+
+```sh
+node chat.js history-20250119-1500.txt "$(cat <<EOF
+LLMがファイル書き込みなどのアクションを実行できるように拡張したいです。
+
+以下のような流れで実装すると良いでしょう。
+
+- LLMの返答にあるtoolのリクエストをパースする処理
+- Userの承認を得てtoolのリクエストを実行する処理
+- write_fileの実装
+
+Userの承認を得るところまでは実装ができたので、次はwrite_fileを実装して、
+LLMがファイルを書き込めるようにしましょう。
+
+- 実装にあたって、明確にすべきポイントがあれば、すべて明確になるまで質問してください。
+- コードを提示する場合は省略せずにすべて提示してください
+- 実行環境はNode.js v22です
+- 標準ライブラリのみを利用してください
+
+拡張したいスクリプト：
+<file_content path="agent-v2.js">
+$(cat agent-v2.js)
+</file_content>
+
+System Instruction:
+<file_content path="system_instruction.md">
+$(cat system_instruction.md)
+</file_content>
+EOF
+)"
+```
+
+Output: [history-20250119-1500.txt](history-20250119-1500.txt)
+
+出力したスクリプトを agent-v3.js として保存。
+
+```sh
+rm -f history-tmp.txt && node agent-v3.js history-tmp.txt "Hello, World\!という文字列をhello.txtに書き込んでください"
+```
+
+Output:
+```
+<write_file>
+  <file_path>hello.txt</file_path>
+  <content>Hello, World!</content>
+</write_file> これでどうでしょうか？ ファイルに書き込みますか？ 
+
+LLMは以下のツールを実行しようとしました:
+[
+  {
+    "name": "write_file",
+    "parameters": {
+      "file_path": "hello.txt",
+      "content": "Hello, World!"
+    }
+  }
+]
+ツールを実行しますか？ (y/n): y
+ツール write_file を実行しています...
+ファイル hello.txt に書き込みました。
+```
