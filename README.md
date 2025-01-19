@@ -19,8 +19,6 @@
 
 まずは一問一答の形式でやり取りするスクリプトを準備。ここだけは私が書く。
 
-commit: fcb291df1f9aa5c9fe444482a20558dd79b29f7c
-
 ```sh
 bash agent.sh "Hello, World!"
 ```
@@ -30,13 +28,13 @@ Output:
 Hello, World! It's nice to meet you. What can I help you solve today? 😊 
 ```
 
+Commit: fcb291df1f9aa5c9fe444482a20558dd79b29f7c
+
 Gemini APIの仕様を確認する過程でsystem instructionをファイルから読めるようにしたが、ここではなくても良かった。
 
 ## (1) Conversation History
 
 会話の内容を保持できるようにする。
-
-commit: cdf08a4e129314ad3addd18f219c6749f22e9401
 
 ```sh
 # まだAgentと呼べるほどのものではないのでリネーム
@@ -279,11 +277,11 @@ Taroの「もちろんです！」は、Shumpeiさんの「私って誰でした
 つまり、「あなたのことを覚えていますよ！（もちろんです！）」と伝え、その後に「あなたはShumpeiさんですよ」と、名前を再確認する流れになっています。 
 ```
 
+Commit: cdf08a4e129314ad3addd18f219c6749f22e9401
+
 ## (2) Rewrite
 
 今後の拡張のためにJavaScriptに書き換える。
-
-commit: 97f7792da70d9ae32c56066db61de2f5c609f892
 
 ```sh
 bash chat.sh "$(cat <<EOF
@@ -299,13 +297,13 @@ EOF
 
 Output: [history-20250118-2140.txt](history-20250118-2140.txt)
 
+Commit: 97f7792da70d9ae32c56066db61de2f5c609f892
+
 引数の順序が変わっていたり、エラーハンドリングなど粗い部分があるが、先に進める。
 
 ## (3) Actions
 
 まずはコードを書けるように、ファイルの書き込みができるようにする。
-
-commit: a93d539cb577b2e04a1163a0a3f4450005f83387
 
 toolの呼び出し方を system_instruction.md に追記。
 
@@ -314,6 +312,8 @@ node chat.js history-20250119-1100.txt "買い物リストを作るのを手伝�
 ```
 
 Output: [history-20250119-1100.txt](history-20250119-1100.txt)
+
+Commit: a93d539cb577b2e04a1163a0a3f4450005f83387
 
 - system instructionで指定したフォーマットにしたがって、ファイル保存のリクエストができている。
 - 改行を `\n` で表現しているのはこのままで良い?
@@ -349,6 +349,8 @@ EOF
 )"
 ```
 
+Output: [history-20250119-1120.txt](history-20250119-1120.txt)
+
 出力したスクリプトを `agent-v1.js` として保存。
 
 ```sh
@@ -368,7 +370,10 @@ Tool Request: {
 }
 ```
 
+Commit: 9444091d2b43cf1e73d3367678393a43c0f2de44
+
 tools呼び出しが複数あると最初のものしかparseされないが後で考える。
+
 次に、Userの承認を求めるように拡張してもらう。
 
 ```sh
@@ -404,10 +409,11 @@ EOF
 )"
 ```
 
+※ 間違えて chat.js を渡してしまった
+
 Output: [history-20250119-1420.txt](history-20250119-1420.txt)
 
 出力したスクリプトをagent-v2.jsとして保存。
-まちがえて、古いバージョンの chat.js を与えていたが、気にせず先に進む。
 
 ```sh
 rm -f history-tmp.txt && node agent-v2.js history-tmp.txt "Hello, World\!という文字列をhello.txtに書き込んでください"
@@ -511,3 +517,13 @@ LLMは以下のツールを実行しようとしました:
 ツール write_file を実行しています...
 ファイル hello.txt に書き込みました。
 ```
+
+```sh
+cat hello.txt
+```
+
+```
+Hello, World!
+```
+
+Commit: 74e145ef44d69602d1fed99ac7e0970febd9b7e9
