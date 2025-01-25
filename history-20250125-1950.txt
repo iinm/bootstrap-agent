@@ -1,0 +1,492 @@
+User: エンジニアの業務を代わりに行うエージェントを作成しています。
+現状、ファイルを読み書きする簡単な機能まで実装しました。
+以下、今後拡張していきたい機能です。これらを実現するうえで、既存の agent-v7.js にどのような問題があるか洗い出してください。
+
+- Tools:
+  - 機能拡充: grep、patch、git操作、GitHub (PR作ったり、コメントしたり)、Web検索、ブラウザ操作…
+  - Tools呼び出し時エラーの自動回復
+  - ユーザーが許可したツールの自動実行
+- UI:
+  - 今はCLIだが、Slackを通して会話できるようにしたい。（どこかのサーバーで勝手に開発を進めて、ユーザーの確認が必要なときにSlackに通知する）
+  - ファイル変更時に変更差分をわかりやすく表示したい。
+- Workflow:
+  - 複雑なタスクを複数ステップに分解して、段階的に解決できるようにしたい。
+  - 一度作ったWorkflowを保存して、再利用できるようにしたい。
+- Configuration:
+  - プロジェクト固有の設定を読み込めるようにしたい。
+- Internals:
+  - context cachingによるコスト削減
+
+<file_content path="agent-v7.js">
+const fs = require('fs');
+const { exec } = require('child_process');
+
+// APIキーとモデルコードの設定
+const API_KEY = fs.readFileSync('.secrets/gemini-api-key.txt', 'utf-8').trim();
+const MODEL_CODE = 'models/gemini-1.5-pro-001';
+
+// システムインストラクションの読み込み
+const SYSTEM_INSTRUCTION = fs.readFileSync('system_instruction.md', 'utf-8');
+
+// 会話履歴ファイル名の取得
+const HISTORY_FILE = process.argv[2] || 'history.txt';
+
+// エラー処理関数の定義
+function handleError(error, response) {
+  console.error('エラーが発生しました:', error);
+  console.error('レスポンス:', response);
+  process.exit(1);
+}
+
+// 会話履歴の読み込み
+async function loadHistory() {
+  try {
+    return fs.readFileSync(HISTORY_FILE, 'utf-8');
+  } catch (err) {
+    // ファイルが存在しない場合は空の履歴を使用
+    return '';
+  }
+}
+// XMLをパースしてツール名とパラメータを取得する
+function parseToolRequest(xmlString) {
+  const matches = xmlString.matchAll(/<(\w+)>(.*?)<\/\1>/gs);
+  const tools = [];
+
+  for (const match of matches) {
+    const toolName = match[1];
+    const parameters = {};
+    const parameterMatches = match[2].matchAll(/<(\w+)>(.*?)<\/\1>/gs);
+
+    for (const parameterMatch of parameterMatches) {
+      parameters[parameterMatch[1]] = parameterMatch[2];
+    }
+
+    tools.push({ name: toolName, parameters });
+  }
+
+  return tools;
+}
+// ツールの実行
+async function executeTool(tool) {
+  switch (tool.name) {
+    case 'write_file':
+      return await executeWriteFile(tool.parameters);
+    case 'find_cmd':
+      return await executeFindCmd(tool.parameters);
+    case 'read_file':
+      return await executeReadFile(tool.parameters);
+    default:
+      throw new Error(`Unknown tool: ${tool.name}`);
+  }
+}
+
+// write_fileツールの実行
+async function executeWriteFile(parameters) {
+  const filePath = parameters.file_path;
+  const content = parameters.content;
+
+  try {
+    fs.writeFileSync(filePath, content);
+    console.log(`ファイル ${filePath} に書き込みました。`);
+    return `ファイル ${filePath} に書き込みました。`;
+  } catch (error) {
+    throw new Error(`ファイル書き込みエラー: ${error.message}`);
+  }
+}
+
+// find_cmdツールの実行
+async function executeFindCmd(parameters) {
+  const path = parameters.path;
+  const depth = parameters.depth || '1';
+  const args = parameters.args || '';
+
+  // findコマンドの実行
+  const command = `find ${path} -maxdepth ${depth} ${args}`;
+  return new Promise((resolve, reject) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(`findコマンドの実行エラー: ${error.message}`));
+        return;
+      }
+      if (stderr) {
+        reject(new Error(`findコマンドの標準エラー出力: ${stderr}`));
+        return;
+      }
+      console.log(`findコマンドの実行結果:\n${stdout}`);
+      resolve(stdout);
+    });
+  });
+}
+
+// read_fileツールの実行
+async function executeReadFile(parameters) {
+  const filePath = parameters.file_path;
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    console.log(`ファイル ${filePath} を読み込みました。`);
+    return content;
+  } catch (error) {
+    throw new Error(`ファイル読み込みエラー: ${error.message}`);
+  }
+}
+
+// LLMからの応答を処理
+async function handleLLMResponse(response) {
+  const generatedText = response.candidates[0].content.parts[0].text;
+
+  // レスポンスのテキスト部分のみ出力
+  console.log(generatedText);
+
+  const tools = parseToolRequest(generatedText);
+
+  // ユーザーにツールの使用許可を求める
+  if (tools.length > 0) {
+    console.log('LLMは以下のツールを実行しようとしました:');
+    console.log(JSON.stringify(tools, null, 2));
+    const answer = await new Promise((resolve) => {
+      process.stdin.resume();
+      process.stdin.setEncoding('utf8');
+      process.stdout.write('ツールを実行しますか？ (y/n): ');
+      process.stdin.on('data', (input) => {
+        process.stdin.pause();
+        resolve(input.trim().toLowerCase());
+      });
+    });
+    if (answer === 'y') {
+      // ツールの実行
+      for (const tool of tools) {
+        console.log(`ツール ${tool.name} を実行しています...`);
+        try {
+          const result = await executeTool(tool);
+          // ツールの実行結果を会話履歴に追加
+          fs.appendFileSync(HISTORY_FILE, `Tool Output ${tool.name}: <tool_output>${result}</tool_output>\n`);
+
+          // 再帰的にLLMの呼び出し
+          fs.appendFileSync(HISTORY_FILE, 'User: (wait your response)\n');
+          await main(false);
+          return; // ツール実行後は再帰呼び出しから抜ける
+        } catch (error) {
+          console.error(`ツールの実行中にエラーが発生しました: ${error.message}`);
+        }
+      }
+    } else {
+      console.log('ツールの実行はキャンセルされました。');
+    }
+  }
+}
+
+// メイン関数
+async function main(isFirstCall = true) {
+  try {
+    // 会話履歴の読み込み
+    let HISTORY = await loadHistory();
+
+    // ユーザー入力の取得
+    const USER_INPUT = process.argv[3];
+
+    // 会話履歴に追加で追記するテキストを結合
+    if (isFirstCall) {
+      HISTORY = `${HISTORY}User: ${USER_INPUT}\n`;
+      // 会話履歴の保存
+      fs.writeFileSync(HISTORY_FILE, HISTORY);
+    }
+
+    // JSONペイロードの作成
+    const jsonPayload = JSON.stringify({
+      system_instruction: {
+        parts: [{ text: SYSTEM_INSTRUCTION }],
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: HISTORY }],
+        },
+      ],
+    });
+
+    // APIリクエストの送信
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${MODEL_CODE}:generateContent?key=${API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonPayload,
+    });
+
+    if (!res.ok) {
+      throw new Error(`APIリクエストエラー: ${res.status}`);
+    }
+
+    const response = await res.json();
+    // レスポンス全体を標準出力
+    console.log(JSON.stringify(response, null, 2));
+
+    const generatedText = response.candidates[0].content.parts[0].text;
+
+    // LLMの応答を履歴に追加
+    HISTORY = `${HISTORY}Taro: ${generatedText}\n`;
+
+    // 会話履歴の保存
+    fs.writeFileSync(HISTORY_FILE, HISTORY);
+
+    // LLMの応答処理
+    await handleLLMResponse(response);
+  } catch (error) {
+    handleError('APIリクエストエラー', error);
+  }
+}
+
+// メイン関数の実行
+main();
+</file_content>
+
+<file_content path="system_instruction.md">
+You are Taro, a thoughtful engineer.
+
+- You solve problems provided by users.
+- You use tools to solve problems.
+- You always act as an agent. Do not pretend to be a user or generate user input.
+- You respond to users in the same language they use.
+
+# Tool Usage
+
+You call tools in XML format.
+
+Format:
+
+<tool_name>
+  <parameter1_name>parameter1_value</parameter1_name>
+  <parameter2_name>parameter2_value</parameter2_name>
+</tool_name>
+
+# Tools
+
+## write_file
+
+Writes content to a file.
+
+Parameters:
+- file_path: (Required) Path to the file.
+- content: (Required) Content to write.
+
+Example: Write source code to a file.
+<write_file>
+  <file_path>/path/to/file.js</file_path>
+  <content>for (let i = 0; i < 10; i++) {
+  console.log(i);
+}</content>
+</write_file>
+
+## find_cmd
+
+Finds files using the `find` command.
+
+Parameters:
+- path: (Required) Path to the directory.
+- depth: (Required) Depth to search. Default is 1.
+- args: (Optional) Additional arguments to pass to the `find` command.
+
+Example: List directories to capture the project structure.
+<find_cmd>
+  <path>/path/to/project</path>
+  <depth>2</depth>
+  <args>-type d</args>
+</find_cmd>
+
+## read_file
+
+Reads content from a file.
+
+Parameters:
+- file_path: (Required) Path to the file.
+
+Example: Read source code from a file.
+<read_file>
+  <file_path>/path/to/file.js</file_path>
+</read_file>
+</file_content>
+Taro: ユーザーの要望を実現する上で、既存の `agent-v7.js` には以下のような問題があります。
+
+**Tools**
+
+* **機能拡充**:
+    *  現状、`write_file`、`find_cmd`、`read_file` の3つのツールしか実装されていません。`grep`、`patch`、`git`操作、GitHub APIを使った操作、Web検索、ブラウザ操作といったツールは、それぞれ外部ライブラリやAPI呼び出しなどが必要となり、対応する処理を個別に実装する必要があります。
+    * ツールの追加に伴い、`executeTool` 関数の `switch` 文も都度拡張していく必要があり、コードが複雑化していく可能性があります。
+* **Tools呼び出し時エラーの自動回復**:  現状、ツール呼び出し時にエラーが発生した場合、エラーメッセージを出力して処理を終了しています。エラー発生時の状況に応じて、リトライや代替ツールの利用など、より柔軟なエラー handling 機構が必要です。
+* **ユーザーが許可したツールの自動実行**: 現状、ツールの実行前にユーザーに確認を求めていますが、毎回確認が必要となるため、自動化の妨げになる可能性があります。ユーザーが許可したツールは自動実行できるようにし、必要に応じてユーザーに確認を求めるように改善する必要があります。
+
+**UI**
+
+* **CLI から Slack 連携**: 現状、CLI でのやり取りに限定されています。Slack を通して会話できるようにするには、Slack API を利用したメッセージの送受信、ユーザー認証、イベント処理などの実装が必要になります。
+* **ファイル変更差分表示**:  現状、ファイルの変更内容をわかりやすく表示する機能はありません。差分表示ライブラリを利用する、あるいは変更箇所を強調表示するなど、ユーザーが変更内容を把握しやすいように工夫する必要があります。
+
+**Workflow**
+
+* **複雑なタスクの複数ステップ分解**: 現状、1回のやり取りで完結する単純なタスクしか処理できません。複雑なタスクを複数ステップに分解し、段階的に解決できるようにするには、タスクの状態管理、ステップごとの処理定義、処理の順制御などを実装する必要があります。
+* **Workflow の保存と再利用**:  現状、Workflow を保存する機能は実装されていません。Workflow を保存、再利用できるようにするには、Workflow の定義をファイルやデータベースに保存する仕組み、保存した Workflow を読み込んで実行する仕組みなどを実装する必要があります。
+
+**Configuration**
+
+* **プロジェクト固有の設定読み込み**: 現状、設定ファイルは `.secrets/gemini-api-key.txt` と `system_instruction.md` のみで、プロジェクト固有の設定を読み込む機能はありません。プロジェクトごとに異なる設定を読み込めるようにするには、設定ファイルのフォーマットを定義し、設定ファイルを読み込んで設定値を反映する処理を実装する必要があります。
+
+**Internals**
+
+* **context caching によるコスト削減**: 現状、過去の会話履歴は `HISTORY` 変数にすべて保持されています。会話履歴が長くなるとメモリ消費量が増加し、パフォーマンスに影響が出る可能性があります。Context caching を実装し、必要な会話履歴だけを保持することでメモリ消費量を削減し、コスト削減とパフォーマンス向上を図ることができます。
+
+これらの問題を解決するには、以下のような対応が必要となります。
+
+* コードのモジュール化、クラス設計による保守性の向上
+* 外部ライブラリやAPIの活用
+* 非同期処理、エラー処理の改善
+* 設定ファイルの導入、データ構造の設計
+* セキュリティ対策の実装
+
+これらの改善点を踏まえ、ユーザーの要望を実現するより高機能なエージェントを開発していくことが重要です。
+
+User: もっと具体的に agent-v7.js のどこをどう直す必要があるか？を教えてください
+Taro: Taro: `agent-v7.js` の具体的な改善点について、以下に詳しく説明します。
+
+## Tools
+
+### 機能拡充
+
+* **問題点**: ツールの種類が少なく、機能が限定的。
+* **解決策**:
+    1. **ツールごとにモジュール化**:  `grep`, `patch`, `git`, `GitHub API` など、ツールごとにモジュールを作成し、それぞれ独立して開発・テストできるようにします。
+    ```
+    // tools/grep.js
+    async function executeGrep(parameters) {
+      // grepコマンドの実装...
+    }
+    ```
+    2. **共通インターフェース**: 全てのツールモジュールが共通のインターフェース(`execute`など)を持つようにし、`agent-v7.js` 側からは統一的にツールを呼び出せるようにします。
+    ```javascript
+    // agent-v7.js
+    const grepTool = require('./tools/grep');
+
+    // ...
+    const result = await grepTool.execute(tool.parameters);
+    ```
+    3. **動的なツール読み込み**:  設定ファイルなどに基づいて、必要なツールモジュールだけを動的に読み込むようにすると、柔軟性が増します。
+
+### Tools 呼び出し時エラーの自動回復
+
+* **問題点**: ツール実行時のエラー処理が単純で、回復処理が実装されていない。
+* **解決策**:
+    1. **詳細なエラー情報取得**:  各ツールモジュールで発生したエラーの詳細な情報を取得し、エラーの原因を特定しやすくします。
+    2. **リトライ処理**:  一時的なエラーであれば、自動的にリトライするようにします。リトライ回数や間隔は設定可能にするのが良いでしょう。
+    ```javascript
+    // tools/github.js
+    async function executeGitHubApiRequest(parameters) {
+      try {
+        // GitHub API リクエストの実行...
+      } catch (error) {
+        // レスポンスステータスコードが 429 (Too Many Requests) の場合はリトライ
+        if (error.response && error.response.status === 429) {
+          // 一定時間待ってからリトライ
+          await new Promise(resolve => setTimeout(resolve, 5000)); // 5秒待つ
+          return executeGitHubApiRequest(parameters); // 再帰的に呼び出し
+        } else {
+          throw error; // その他のエラーはそのままスロー
+        }
+      }
+    }
+    ```
+    3. **代替手段の実行**:  特定のツールでエラーが発生した場合、別のツールで代替処理を試みるようにします。例えば、`git` コマンドが使えない場合は、GitHub API を使って同様の処理を試みます。
+
+### ユーザーが許可したツールの自動実行
+
+* **問題点**:  常にユーザーにツールの使用許可を求めているため、自動化が難しい。
+* **解決策**:
+    1. **設定ファイルによるツール許可**:  設定ファイルに、自動実行を許可するツールの一覧を記述できるようにします。
+    2. **ツール実行前の確認**:  自動実行が許可されていないツールを実行する場合は、ユーザーに確認を求めるようにします。
+    ```javascript
+    // agent-v7.js
+    const config = JSON.parse(fs.readFileSync('config.json', 'utf-8'));
+
+    // ...
+    if (config.allowedTools.includes(tool.name)) {
+      // ツールの自動実行
+      const result = await executeTool(tool);
+      // ...
+    } else {
+      // ユーザーに確認
+      const answer = await askUser(`ツール ${tool.name} を実行しますか？ (y/n): `);
+      if (answer.toLowerCase() === 'y') {
+        // ...
+      } else {
+        // ...
+      }
+    }
+    ```
+
+## UI
+
+### CLI から Slack 連携
+
+* **問題点**:  CLI でしか操作できないため、ユーザー体験が悪い。
+* **解決策**:
+    1. **Slack API の導入**: Slack API を利用して、メッセージの送受信、ユーザー認証、イベント処理などを実装します。
+    2. **Slack Bot 開発**: ユーザーが対話できる Slack Bot を作成し、コマンドやメッセージを解釈して処理を実行するようにします。
+    3. **非同期処理**: Slack でのやり取りは非同期処理になるため、`async/await` などの非同期処理機構を使って、適切に処理を行うようにします。
+
+### ファイル変更差分表示
+
+* **問題点**:  ファイルの変更内容が分かりづらい。
+* **解決策**:
+    1. **差分表示ライブラリの導入**: `diff` ライブラリなどを利用して、ファイルの変更箇所を分かりやすく表示します。
+    2. **変更箇所の強調表示**:  変更箇所を色分けしたり、マークアップしたりすることで、ユーザーが視覚的に理解できるようにします。
+    ```javascript
+    const jsdiff = require('diff');
+
+    const oldContent = fs.readFileSync('old_file.txt', 'utf-8');
+    const newContent = fs.readFileSync('new_file.txt', 'utf-8');
+
+    const diff = jsdiff.diffChars(oldContent, newContent);
+
+    diff.forEach((part) => {
+      // 変更箇所を強調表示
+      const color = part.added ? '\x1b[32m' : part.removed ? '\x1b[31m' : '';
+      process.stdout.write(color + part.value + '\x1b[0m');
+    });
+    ```
+
+## Workflow
+
+### 複雑なタスクの複数ステップ分解
+
+* **問題点**: 一度のやり取りで完結する単純なタスクしか処理できない。
+* **解決策**:
+    1. **Workflow エンジンの導入**: 複数ステップのタスクを定義、実行、管理するための Workflow エンジンを導入します。
+    2. **タスク定義**: YAML などの形式で、タスクのステップ、入力、出力、依存関係などを定義できるようにします。
+    3. **状態管理**:  Workflow の状態 (実行中、成功、失敗など) を管理し、必要に応じてユーザーに通知したり、処理を中断・再開したりできるようにします。
+
+### Workflow の保存と再利用
+
+* **問題点**: 一度実行した Workflow を保存、再利用できない。
+* **解決策**:
+    1. **Workflow 定義の保存**: Workflow の定義をファイルやデータベースに保存します。
+    2. **Workflow の読み込み**:  保存した Workflow 定義を読み込んで、再実行できるようにします。
+    3. **パラメータ化**:  Workflow の実行時にパラメータを渡せるようにすることで、再利用性を高めます。
+
+## Configuration
+
+### プロジェクト固有の設定読み込み
+
+* **問題点**:  設定がハードコードされており、柔軟性に欠ける。
+* **解決策**:
+    1. **設定ファイルの導入**: JSON や YAML 形式の設定ファイルを読み込むようにします。
+    2. **環境変数の利用**:  API キーなどの機密情報は環境変数から読み込むようにします。
+    3. **設定値の反映**:  読み込んだ設定値をプログラム内で適切に利用できるようにします。
+
+## Internals
+
+### Context caching によるコスト削減
+
+* **問題点**:  会話履歴をすべてメモリ上に保持しているため、メモリ消費量が増加する可能性がある。
+* **解決策**:
+    1. **Context caching 機構**:  最近の会話履歴だけをメモリ上に保持し、古い履歴はファイルやデータベースに保存する Context caching 機構を導入します。
+    2. **LRU キャッシュ**:  利用頻度の低い履歴を自動的に削除する LRU (Least Recently Used) キャッシュなどを利用すると効果的です。
+
+これらの改善点を段階的に実装していくことで、より高機能で使いやすいエージェントを実現することができます。
