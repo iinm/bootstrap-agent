@@ -39,11 +39,6 @@ function parseToolRequest(xmlString) {
     return [];
   }
 
-  // tool_request要素が複数ある場合はエラー
-  if (xmlString.match(/<tool_request>/g).length > 1) {
-    throw new Error('tool_request要素は1つだけにしてください。');
-  }
-
   const tools = [];
   const toolMatches = toolRequestMatch[1].matchAll(/<(\w+)>(.*?)<\/\1>/gs);
 
