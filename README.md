@@ -1037,7 +1037,7 @@ Output: [history-20250125-1950.txt](history-20250125-1950.txt)
 - カレントディレクトリ以外にアクセスできないようにする
   - カレントディレクトリ以外にもアクセスするユースケースがあるかもしれないので後で考える
 
-## (7) History format
+## (7) Update history format
 
 ```sh
 node agent-v7.js history-20250125-2120.txt "$(cat <<EOF
@@ -1093,3 +1093,76 @@ EOF
 ```
 
 Output: [history-20250125-2120.txt](history-20250125-2120.txt)
+
+## (8) Disable Gemini content filter
+
+Geminiのコンテンツフィルタに引っかかって先に進めないので一旦無効にする。
+
+```sh
+node agent-v8.js history-20250126-1230.json "$(cat <<EOF
+agent-v8.js は、LLMの生成内容に危険性があると判断されると、APIリクエストエラーが発生してしまいます。
+この問題を解決するため、Geminiのコンテンツフィルタを無効にしてください。
+
+リクエストボディに以下の内容を含めると、コンテンツフィルタが無効になります。
+{
+  "safetySettings": [
+    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+  ]
+}
+
+変更を反映して agent-v9.js を作成してください。
+
+<file_content path="agent-v8.js">
+$(cat agent-v8.js)
+</file_content>
+EOF
+)"
+```
+
+## (9) Update tool request format
+
+```sh
+node agent-v8.js history-FIXME.json "$(cat <<EOF
+カレントディレクトリにある agent-v8.js はツール呼び出しが可能なエージェントです。
+ツール呼び出しのフォーマットに問題があるため、改善して agent-v9.js を作成してください。
+
+以下のステップで改善を行ってください。
+一度にすべて解決する必要はありません、各ステップを一つずつ実行してください。
+
+(0) agent-v8.js の内容を確認する
+
+(1) ツール呼び出しとその他のXMLの区別がつくようにする
+
+現状、ツール呼び出しのフォーマットは以下の通りです。
+<read_file>
+  <file_path>/path/to/file.js</file_path>
+</read_file>
+
+以下のように、ツール呼び出しであることが明確にわかるフォーマットに変更するため、
+XMLを読み込む処理を変更してください。
+<tool_request>
+  <read_file>
+    <file_path>/path/to/file.js</file_path>
+  </read_file>
+</tool_request>
+
+また、今後、ツール呼び出し以外のXML要素を含めても問題ないようにしてください。
+例:
+<think>
+  file.js 内の関数 foo の定義を確認し、使い方を調べます。
+</think>
+<tool_request>
+  <read_file>
+    <file_path>/path/to/file.js</file_path>
+  </read_file>
+</tool_request>
+
+(2) ツール呼び出しは1つだけにする
+- tool_requestが複数ある場合はエラーを出力する
+- tool_request内に複数のtool_nameがある場合はエラーを出力する
+EOF
+)"
+```
