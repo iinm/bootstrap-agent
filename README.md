@@ -1188,6 +1188,55 @@ Commit: 37d919fad9aa7b9fa1ae312549682ab7f28fea3e
 Commit: 3751d687e12e69859580835db45e1241ada888fe
 
 - 必要なツールが与えられていない場合は存在するツールの組み合わせで代替手段を考える。
-- それでも解決できない場合は、ユーザーに追加のツールが必要であることを伝える。
+- それでも解決できない場合は、ユーザーにその旨を伝える。
 
 Commit: cb2532307a98afcf96d27010ceec5882df40732c
+
+```sh
+rm history-tmp.json && node agent-v10.js history-tmp.json "今日の東京の天気は？"
+```
+
+Output:
+```
+<think>今日の東京の天気に関する情報を提供する必要がある。そのためには、天気APIなどの外部ツールが必要になる。</think>
+申し訳ありませんが、天気情報を取得するツールがありません。そのため、今日の東京の天気をお伝えできません。
+```
+
+## (11) Set temperature
+
+```sh
+node agent-v10.js history-20250126-1820.json "$(cat <<EOF
+./agent-v10.js でGemini APIを呼ぶ際に、temperatureを0に設定したいです。
+以下の内容をリクエストに追加して agent-v11.js を作成してください。
+
+{
+  "generationConfig": {
+    "temperature": 0
+  }
+}
+EOF
+)"
+```
+
+Output: [history-20250126-1820.json](history-20250126-1820.json)
+
+```sh
+rm history-tmp.json && node agent-v11.js history-tmp.json "今日の東京の天気は？"
+```
+
+Output:
+```
+<think>今日の東京の天気に関する情報を取得する必要がある。</think>
+申し訳ありませんが、情報を取得するためのツールがありません。
+```
+
+```sh
+rm history-tmp.json && node agent-v11.js history-tmp.json "今日のドル円の為替レートは？"
+```
+
+Output:
+```
+<think>今日のドル円の為替レートを取得する必要がある。</think> 申し訳ありませんが、為替レートを取得するツールがありません。
+```
+
+Commit: 
