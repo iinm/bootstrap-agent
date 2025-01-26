@@ -1178,3 +1178,11 @@ Output: [history-20250126-1240.json](history-20250126-1240.json)
 - LLMのアウトプットするコードに `<tool_request>` が入るとそれをツール呼び出しとして認識してしまう。
 
 Commit: 37d919fad9aa7b9fa1ae312549682ab7f28fea3e
+
+## (10) Update system instruction
+
+- ユーザから与えられた問題の本質とゴールを確認すること
+- 問題を小さな問題に分解して、一つずつ解決すること
+- `<think>` タグで出力の目的や意図を明確にすること
+
+Commit: 3751d687e12e69859580835db45e1241ada888fe
