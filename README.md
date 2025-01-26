@@ -1094,6 +1094,8 @@ EOF
 
 Output: [history-20250125-2120.txt](history-20250125-2120.txt)
 
+Commit: 11d43b49e11c611fdcb15bbf9b19a6ebbc34004e
+
 ## (8) Disable Gemini content filter
 
 Geminiのコンテンツフィルタに引っかかって先に進めないので一旦無効にする。
@@ -1121,6 +1123,8 @@ $(cat agent-v8.js)
 EOF
 )"
 ```
+
+Commit: 516dcaf43610259acdb47cdc46e9454fd3fa7b9c
 
 ## (9) Update tool request format
 
@@ -1169,5 +1173,8 @@ EOF
 
 Output: [history-20250126-1240.json](history-20250126-1240.json)
 
-- 丁寧にステップを分けて指示しても、「各ステップを一つずつ実行してください」と指示しないと
-  v9の内容を確認せずに、空想のv10を作ってしまった。
+- 丁寧にステップを分けて指示しても、v9の内容を確認せずに、空想のv10を作ってしまった。
+  「各ステップを一つずつ実行してください」と指示することで解決。
+- LLMのアウトプットするコードに `<tool_request>` が入るとそれをツール呼び出しとして認識してしまう。
+
+Commit: 37d919fad9aa7b9fa1ae312549682ab7f28fea3e
