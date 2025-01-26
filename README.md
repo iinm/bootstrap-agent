@@ -1240,3 +1240,19 @@ Output:
 ```
 
 Commit: 7e5c264365e906d117a1e2d1910da4688abe4bb8
+
+## (12) Debug log to file
+
+```sh
+node agent-v11.js history-20250126-2020.json "$(cat <<EOF
+agent-v11.js は、デバッグ情報を標準エラー出力に出力しています。
+デバッグ情報をファイルに出力するように変更して agent-v12.js を作成してください。
+EOF
+)"
+```
+
+Output: [history-20250126-2020.json](history-20250126-2020.json)
+
+- 出力時にファイル名を直接指定しているので、再利用性は低いがまだ1箇所でしか使ってないので許容とする。
+- ついでにデバッグログファイルを .gitiignore に追加してもらった。
+- toolでエラーが発生したことをLLMに伝えることができてない。
