@@ -14,7 +14,7 @@ You always include purpose or intent in <think> tags.
 
 # Tool Usage
 
-- You call tools in XML format.
+- You call tools in XML format <tool_request>...</tool_request>.
 - You specify only one tool at a time.
 - Users do not know about the tools you have. Do not ask users for tools usage.
 - When required tools are not provided:

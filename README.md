@@ -1259,6 +1259,18 @@ Output: [history-20250126-2020.json](history-20250126-2020.json)
 
 Commit: 758239a343a26f9ff5a709ccfecce152746224ef
 
+## (13) JSDoc
+
+```sh
+node agent-v12.js history-20250129-2345.json "カレントディレクトリにあるagent-v12.jsにjsdocを書いて型を明示したいです。"
+```
+
+Output: [history-20250129-2345.json](history-20250129-2345.json)
+
+tool_requestのフォーマットを守らなくなってしまったの instruction に追記した。
+
+Commit: 
+
 ## TODO
 
 - ツールのエラーをLLMに伝える
