@@ -1269,7 +1269,7 @@ Output: [history-20250129-2345.json](history-20250129-2345.json)
 
 tool_requestのフォーマットを守らなくなってしまったの instruction に追記した。
 
-Commit: 
+Commit: 6520759f9c87122ce7f8152bf4a4024c922f3313
 
 ## TODO
 
